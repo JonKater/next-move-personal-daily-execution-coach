@@ -47,10 +47,17 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  sourceSets {
+    getByName("androidTest").assets.directories.add("$projectDir/schemas")
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
   }
+}
+
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -93,6 +100,7 @@ dependencies {
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
+  androidTestImplementation(libs.androidx.room.testing)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)

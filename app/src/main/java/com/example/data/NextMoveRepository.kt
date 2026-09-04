@@ -29,7 +29,7 @@ class NextMoveRepository(private val dao: NextMoveDao) {
             if (context == null) return@combine emptyList()
             
             actions.mapNotNull { action -> scoreAction(action, context) }
-                .sortedByDescending { it.score }
+                .sortedWith(compareByDescending<Action> { it.score }.thenBy { it.id })
         }
     }
     

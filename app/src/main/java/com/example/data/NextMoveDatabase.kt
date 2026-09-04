@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [Goal::class, Project::class, Action::class, DailyContext::class, DecisionLog::class],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class NextMoveDatabase : RoomDatabase() {
     abstract fun dao(): NextMoveDao

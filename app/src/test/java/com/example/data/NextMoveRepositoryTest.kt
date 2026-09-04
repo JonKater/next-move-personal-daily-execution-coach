@@ -71,6 +71,19 @@ class NextMoveRepositoryTest {
     }
 
     @Test
+    fun `equal-score recommendations use ascending action ID as a tie breaker`() = runBlocking {
+        val projectId = insertProject(status = "active")
+        val firstId = repository.insertAction(action(projectId = projectId, name = "First")).toInt()
+        val secondId = repository.insertAction(action(projectId = projectId, name = "Second")).toInt()
+        repository.saveDailyContext(context())
+
+        assertEquals(
+            listOf(firstId, secondId),
+            repository.getScoredNextActions().first().map { it.id }
+        )
+    }
+
+    @Test
     fun `split atomically retains original action fields on both replacements`() = runBlocking {
         val projectId = insertProject(status = "active")
         val original = action(

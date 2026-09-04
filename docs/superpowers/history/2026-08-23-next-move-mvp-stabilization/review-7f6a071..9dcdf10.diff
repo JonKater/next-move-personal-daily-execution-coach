@@ -1,0 +1,41 @@
+# Review package: 7f6a071..9dcdf10
+
+## Commits
+9dcdf10 chore: remove obsolete AI configuration
+
+## Files changed
+ .env.example      | 7 -------
+ gradle.properties | 2 --
+ 2 files changed, 9 deletions(-)
+
+## Diff
+diff --git a/.env.example b/.env.example
+deleted file mode 100644
+index 8609a88..0000000
+--- a/.env.example
++++ /dev/null
+@@ -1,7 +0,0 @@
+-# GEMINI_API_KEY: Required for Gemini AI API calls.
+-# This is a placeholder key.
+-# AI Studio automatically injects this at runtime from user secrets.
+-# Users configure this via the Secrets panel in the AI Studio UI.
+-# IMPORTANT: Uncomment the line below if your app uses the Gemini API.
+-# If left commented out, the key will NOT be packaged in the APK.
+-# GEMINI_API_KEY=MY_GEMINI_API_KEY
+diff --git a/gradle.properties b/gradle.properties
+index bf26ee5..5325414 100644
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -17,12 +17,10 @@ kotlin.code.style=official
+ # resources declared in the library itself and none from the library's dependencies,
+ # thereby reducing the size of the R class for that library
+ android.nonTransitiveRClass=true
+ org.gradle.caching=true
+ org.gradle.configuration-cache=true
+ # Set the maximum number of workers to 4 to avoid overloading the machine.
+ org.gradle.workers.max=4
+ # Set the Kotlin compiler execution strategy to in-process to avoid "Could not
+ # connect to Kotlin compile daemon" error.
+ kotlin.compiler.execution.strategy=in-process
+-# Allow the google-services plugin to work even if the google-services.json is not present.
+-googleServices.missing.passthrough=true

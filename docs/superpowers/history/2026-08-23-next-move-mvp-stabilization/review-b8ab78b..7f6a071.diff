@@ -1,0 +1,743 @@
+# Review package: b8ab78b7d16699dec95f6259b87782eeb044aef8..7f6a071
+
+## Commits
+7f6a071 build: restore reproducible Android baseline
+
+## Files changed
+ README.md                                          |  31 ++-
+ app/build.gradle.kts                               |  42 +---
+ .../java/com/example/ExampleRobolectricTest.kt     |   2 +-
+ .../java/com/example/GreetingScreenshotTest.kt     |  28 ---
+ app/src/test/screenshots/greeting.png              | Bin 2868 -> 0 bytes
+ build.gradle.kts                                   |   2 -
+ gradle/libs.versions.toml                          |  27 ---
+ gradle/wrapper/gradle-wrapper.jar                  | Bin 0 -> 46175 bytes
+ gradlew                                            | 248 +++++++++++++++++++++
+ gradlew.bat                                        |  93 ++++++++
+ metadata.json                                      |   4 +-
+ 11 files changed, 364 insertions(+), 113 deletions(-)
+
+## Diff
+diff --git a/README.md b/README.md
+index 573665f..b696792 100644
+--- a/README.md
++++ b/README.md
+@@ -1,22 +1,29 @@
+ <div align="center">
+ <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+ </div>
+ 
+-# Run and deploy your AI Studio app
++# Next Move
+ 
+-This contains everything you need to run your app locally.
++Local-first Personal Daily Execution Coach that helps choose the next action.
+ 
+-View your app in AI Studio: https://ai.studio/apps/dda7d889-9379-4801-bc1a-2d3e7792272f
++## Run locally
+ 
+-## Run Locally
++Prerequisites:
+ 
+-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
++- [Android Studio](https://developer.android.com/studio)
++- Android SDK Platform 36.1
++- JDK 17 or newer
+ 
++1. Open this project in Android Studio and install SDK 36.1 if prompted.
++2. Run the `app` configuration on an emulator or physical device.
++3. From a terminal, run the project's Gradle wrapper:
+ 
+-1. Open Android Studio
+-2. Select **Open** and choose the directory containing this project
+-3. Allow Android Studio to fix any incompatibilities as it imports the project.
+-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
+-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
+-6. Run the app on an emulator or physical device
+-7. If you have already published your app in AI Studio, please [request upload key reset](https://support.google.com/googleplay/android-developer/answer/9842756#zippy=%2Crequest-an-upload-key-reset) in Google Play Console.
++   ```sh
++   ./gradlew testDebugUnitTest lintDebug assembleDebug
++   ```
++
++   On Windows PowerShell, run:
++
++   ```powershell
++   .\gradlew.bat testDebugUnitTest lintDebug assembleDebug
++   ```
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+index 15922c2..c83b630 100644
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -1,19 +1,15 @@
+-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+-
+ plugins {
+   alias(libs.plugins.android.application)
+   alias(libs.plugins.kotlin.compose)
+   alias(libs.plugins.google.devtools.ksp)
+   alias(libs.plugins.roborazzi)
+-  alias(libs.plugins.secrets)
+-  alias(libs.plugins.google.services)
+ }
+ 
+ android {
+   namespace = "com.example"
+   compileSdk { version = release(36) { minorApiLevel = 1 } }
+ 
+   defaultConfig {
+     applicationId = "com.aistudio.nextmove.nmzxyw"
+     minSdk = 24
+     targetSdk = 36
+@@ -24,67 +20,48 @@ android {
+   }
+ 
+   signingConfigs {
+     create("release") {
+       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
+       storeFile = file(keystorePath)
+       storePassword = System.getenv("STORE_PASSWORD")
+       keyAlias = "upload"
+       keyPassword = System.getenv("KEY_PASSWORD")
+     }
+-    create("debugConfig") {
+-      storeFile = file("${rootDir}/debug.keystore")
+-      storePassword = "android"
+-      keyAlias = "androiddebugkey"
+-      keyPassword = "android"
+-    }
+   }
+ 
+   buildTypes {
+     release {
+       isCrunchPngs = false
+       isMinifyEnabled = false
+       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+       signingConfig = signingConfigs.getByName("release")
+     }
+-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
++    debug {}
+   }
+   compileOptions {
+     sourceCompatibility = JavaVersion.VERSION_11
+     targetCompatibility = JavaVersion.VERSION_11
+   }
+   buildFeatures {
+     compose = true
+     buildConfig = true
+   }
+   testOptions { unitTests { isIncludeAndroidResources = true } }
+   dependenciesInfo {
+     includeInApk = false
+     includeInBundle = true
+   }
+ }
+ 
+-// Configure the Secrets Gradle Plugin to use .env and .env.example files
+-// to match the convention used in Web projects.
+-secrets {
+-  propertiesFileName = ".env"
+-  defaultPropertiesFileName = ".env.example"
+-  ignoreList.add("FIREBASE_APPCHECK_DEBUG_TOKEN")
+-}
+-
+-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+-
+-// Some unused dependencies are commented out below instead of being removed.
+-// This makes it easy to add them back in the future if needed.
+ dependencies {
+   implementation(platform(libs.androidx.compose.bom))
+-  implementation(platform(libs.firebase.bom))
+   // implementation(libs.accompanist.permissions)
+   implementation(libs.androidx.activity.compose)
+   // implementation(libs.androidx.camera.camera2)
+   // implementation(libs.androidx.camera.core)
+   // implementation(libs.androidx.camera.lifecycle)
+   // implementation(libs.androidx.camera.view)
+   implementation(libs.androidx.compose.material.icons.core)
+   implementation(libs.androidx.compose.material.icons.extended)
+   implementation(libs.androidx.compose.material3)
+   implementation(libs.androidx.compose.ui)
+@@ -92,48 +69,31 @@ dependencies {
+   implementation(libs.androidx.compose.ui.tooling.preview)
+   implementation(libs.androidx.core.ktx)
+   // implementation(libs.androidx.datastore.preferences)
+   implementation(libs.androidx.lifecycle.runtime.compose)
+   implementation(libs.androidx.lifecycle.runtime.ktx)
+   implementation(libs.androidx.lifecycle.viewmodel.compose)
+   // implementation(libs.androidx.navigation.compose)
+   implementation(libs.androidx.room.ktx)
+   implementation(libs.androidx.room.runtime)
+   // implementation(libs.coil.compose)
+-  implementation(libs.converter.moshi)
+-  implementation(libs.firebase.ai)
+-  // Uncomment to use Firestore:
+-  // implementation(libs.firebase.firestore)
+-
+-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
+-  // Sign-In via Credential Manager:
+-  // implementation(libs.firebase.auth)
+-  // implementation(libs.androidx.credentials)
+-  // implementation(libs.androidx.credentials.play.services)
+-  // implementation(libs.googleid)
+-  implementation(libs.firebase.appcheck.recaptcha)
+   implementation(libs.kotlinx.coroutines.android)
+   implementation(libs.kotlinx.coroutines.core)
+-  implementation(libs.logging.interceptor)
+-  implementation(libs.moshi.kotlin)
+-  implementation(libs.okhttp)
+   // implementation(libs.play.services.location)
+-  implementation(libs.retrofit)
+   testImplementation(libs.androidx.compose.ui.test.junit4)
+   testImplementation(libs.androidx.core)
+   testImplementation(libs.androidx.junit)
+   testImplementation(libs.junit)
+   testImplementation(libs.kotlinx.coroutines.test)
+   testImplementation(libs.robolectric)
+   testImplementation(libs.roborazzi)
+   testImplementation(libs.roborazzi.compose)
+   testImplementation(libs.roborazzi.junit.rule)
+   androidTestImplementation(platform(libs.androidx.compose.bom))
+   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+   androidTestImplementation(libs.androidx.espresso.core)
+   androidTestImplementation(libs.androidx.junit)
+   androidTestImplementation(libs.androidx.runner)
+   debugImplementation(libs.androidx.compose.ui.test.manifest)
+   debugImplementation(libs.androidx.compose.ui.tooling)
+   "ksp"(libs.androidx.room.compiler)
+-  "ksp"(libs.moshi.kotlin.codegen)
+ }
+diff --git a/app/src/test/java/com/example/ExampleRobolectricTest.kt b/app/src/test/java/com/example/ExampleRobolectricTest.kt
+index 1f0e609..d6df452 100644
+--- a/app/src/test/java/com/example/ExampleRobolectricTest.kt
++++ b/app/src/test/java/com/example/ExampleRobolectricTest.kt
+@@ -9,13 +9,13 @@ import org.robolectric.RobolectricTestRunner
+ import org.robolectric.annotation.Config
+ 
+ @RunWith(RobolectricTestRunner::class)
+ @Config(sdk = [36])
+ class ExampleRobolectricTest {
+ 
+   @Test
+   fun `read string from context`() {
+     val context = ApplicationProvider.getApplicationContext<Context>()
+     val appName = context.getString(R.string.app_name)
+-    assertEquals("My Application", appName)
++    assertEquals("Next Move", appName)
+   }
+ }
+diff --git a/app/src/test/java/com/example/GreetingScreenshotTest.kt b/app/src/test/java/com/example/GreetingScreenshotTest.kt
+deleted file mode 100644
+index d3d69af..0000000
+--- a/app/src/test/java/com/example/GreetingScreenshotTest.kt
++++ /dev/null
+@@ -1,28 +0,0 @@
+-package com.example
+-
+-import androidx.compose.ui.test.junit4.createComposeRule
+-import androidx.compose.ui.test.onRoot
+-import com.example.ui.theme.MyApplicationTheme
+-import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
+-import com.github.takahirom.roborazzi.captureRoboImage
+-import org.junit.Rule
+-import org.junit.Test
+-import org.junit.runner.RunWith
+-import org.robolectric.RobolectricTestRunner
+-import org.robolectric.annotation.Config
+-import org.robolectric.annotation.GraphicsMode
+-
+-@RunWith(RobolectricTestRunner::class)
+-@GraphicsMode(GraphicsMode.Mode.NATIVE)
+-@Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [36])
+-class GreetingScreenshotTest {
+-
+-  @get:Rule val composeTestRule = createComposeRule()
+-
+-  @Test
+-  fun greeting_screenshot() {
+-    composeTestRule.setContent { MyApplicationTheme { Greeting("Robolectric") } }
+-
+-    composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
+-  }
+-}
+diff --git a/app/src/test/screenshots/greeting.png b/app/src/test/screenshots/greeting.png
+deleted file mode 100644
+index e4ddd4d..0000000
+Binary files a/app/src/test/screenshots/greeting.png and /dev/null differ
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 22de507..25f01aa 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -1,9 +1,7 @@
+ // Top-level build file where you can add configuration options common to all sub-projects/modules.
+ plugins {
+   alias(libs.plugins.android.application) apply false
+   alias(libs.plugins.kotlin.compose) apply false
+   alias(libs.plugins.google.devtools.ksp) apply false
+   alias(libs.plugins.roborazzi) apply false
+-  alias(libs.plugins.secrets) apply false
+-  alias(libs.plugins.google.services) apply false
+ }
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index a60b184..d8dfd84 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -12,42 +12,31 @@ kotlin = "2.2.10"
+ composeBom = "2024.09.00"
+ googleDevtoolsKsp = "2.3.5"
+ navigationCompose = "2.8.9"
+ roomRuntime = "2.7.0"
+ roomKtx = "2.7.0"
+ roomCompiler = "2.7.0"
+ kotlinxCoroutinesTest = "1.10.2"
+ core = "1.6.1"
+ runner = "1.6.2"
+ coilCompose = "2.7.0"
+-retrofit = "2.12.0"
+-converterMoshi = "2.12.0"
+ kotlinxCoroutinesAndroid = "1.10.2"
+ kotlinxCoroutinesCore = "1.10.2"
+ accompanistPermissions = "0.37.3"
+ playServicesLocation = "21.3.0"
+ cameraCamera2 = "1.5.0"
+ cameraLifecycle = "1.5.0"
+ cameraView = "1.5.0"
+ cameraCore = "1.5.0"
+-loggingInterceptor = "4.10.0"
+-okhttp = "4.10.0"
+-moshiKotlin = "1.15.2"
+-moshiKotlinCodegen = "1.15.2"
+ datastorePreferences = "1.1.7"
+ robolectric = "4.16.1"
+ roborazzi = "1.59.0"
+-firebaseBom = "34.17.0"
+-secretsGradlePlugin = "2.0.1"
+-googleServices = "4.5.0"
+-credentials = "1.5.0"
+-googleid = "1.1.1"
+ 
+ 
+ [libraries]
+ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+ junit = { group = "junit", name = "junit", version.ref = "junit" }
+ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+ androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
+@@ -63,46 +52,30 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
+ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "roomRuntime" }
+ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "roomKtx" }
+ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "roomCompiler" }
+ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
+ androidx-core = { group = "androidx.test", name = "core", version.ref = "core" }
+ androidx-runner = { group = "androidx.test", name = "runner", version.ref = "runner" }
+ androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+ androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
+ androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
+-retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+-converter-moshi = { group = "com.squareup.retrofit2", name = "converter-moshi", version.ref = "converterMoshi" }
+ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
+ accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
+ play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "cameraCamera2" }
+ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraLifecycle" }
+ androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
+ androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
+-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "loggingInterceptor" }
+-okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+-moshi-kotlin = { group = "com.squareup.moshi", name = "moshi-kotlin", version.ref = "moshiKotlin" }
+-moshi-kotlin-codegen = { group = "com.squareup.moshi", name = "moshi-kotlin-codegen", version.ref = "moshiKotlinCodegen" }
+ androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
+ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+ roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+ roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+ roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
+-firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+-firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
+-firebase-appcheck-recaptcha = { group = "com.google.firebase", name = "firebase-appcheck-recaptcha" }
+-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+-firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+-androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+-androidx-credentials-play-services = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+-googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+ 
+ 
+ [plugins]
+ android-application = { id = "com.android.application", version.ref = "agp" }
+ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ google-devtools-ksp = { id = "com.google.devtools.ksp", version.ref = "googleDevtoolsKsp" }
+ roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
+-secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
+-google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+diff --git a/gradle/wrapper/gradle-wrapper.jar b/gradle/wrapper/gradle-wrapper.jar
+new file mode 100644
+index 0000000..61285a6
+Binary files /dev/null and b/gradle/wrapper/gradle-wrapper.jar differ
+diff --git a/gradlew b/gradlew
+new file mode 100644
+index 0000000..adff685
+--- /dev/null
++++ b/gradlew
+@@ -0,0 +1,248 @@
++#!/bin/sh
++
++#
++# Copyright © 2015 the original authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      https://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++##############################################################################
++#
++#   Gradle start up script for POSIX generated by Gradle.
++#
++#   Important for running:
++#
++#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
++#       noncompliant, but you have some other compliant shell such as ksh or
++#       bash, then to run this script, type that shell name before the whole
++#       command line, like:
++#
++#           ksh Gradle
++#
++#       Busybox and similar reduced shells will NOT work, because this script
++#       requires all of these POSIX shell features:
++#         * functions;
++#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
++#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
++#         * compound commands having a testable exit status, especially «case»;
++#         * various built-in commands including «command», «set», and «ulimit».
++#
++#   Important for patching:
++#
++#   (2) This script targets any POSIX shell, so it avoids extensions provided
++#       by Bash, Ksh, etc; in particular arrays are avoided.
++#
++#       The "traditional" practice of packing multiple parameters into a
++#       space-separated string is a well documented source of bugs and security
++#       problems, so this is (mostly) avoided, by progressively accumulating
++#       options in "$@", and eventually passing that to Java.
++#
++#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
++#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
++#       see the in-line comments for details.
++#
++#       There are tweaks for specific operating systems such as AIX, CygWin,
++#       Darwin, MinGW, and NonStop.
++#
++#   (3) This script is generated from the Groovy template
++#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
++#       within the Gradle project.
++#
++#       You can find Gradle at https://github.com/gradle/gradle/.
++#
++##############################################################################
++
++# Attempt to set APP_HOME
++
++# Resolve links: $0 may be a link
++app_path=$0
++
++# Need this for daisy-chained symlinks.
++while
++    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
++    [ -h "$app_path" ]
++do
++    ls=$( ls -ld "$app_path" )
++    link=${ls#*' -> '}
++    case $link in             #(
++      /*)   app_path=$link ;; #(
++      *)    app_path=$APP_HOME$link ;;
++    esac
++done
++
++# This is normally unused
++# shellcheck disable=SC2034
++APP_BASE_NAME=${0##*/}
++# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
++APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD=maximum
++
++warn () {
++    echo "$*"
++} >&2
++
++die () {
++    echo
++    echo "$*"
++    echo
++    exit 1
++} >&2
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++nonstop=false
++case "$( uname )" in                #(
++  CYGWIN* )         cygwin=true  ;; #(
++  Darwin* )         darwin=true  ;; #(
++  MSYS* | MINGW* )  msys=true    ;; #(
++  NONSTOP* )        nonstop=true ;;
++esac
++
++
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD=$JAVA_HOME/jre/sh/java
++    else
++        JAVACMD=$JAVA_HOME/bin/java
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD=java
++    if ! command -v java >/dev/null 2>&1
++    then
++        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++fi
++
++# Increase the maximum file descriptors if we can.
++if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
++    case $MAX_FD in #(
++      max*)
++        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        MAX_FD=$( ulimit -H -n ) ||
++            warn "Could not query maximum file descriptor limit"
++    esac
++    case $MAX_FD in  #(
++      '' | soft) :;; #(
++      *)
++        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        ulimit -n "$MAX_FD" ||
++            warn "Could not set maximum file descriptor limit to $MAX_FD"
++    esac
++fi
++
++# Collect all arguments for the java command, stacking in reverse order:
++#   * args from the command line
++#   * the main class name
++#   * -classpath
++#   * -D...appname settings
++#   * --module-path (only if needed)
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
++
++# For Cygwin or MSYS, switch paths to Windows format before running java
++if "$cygwin" || "$msys" ; then
++    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
++
++    JAVACMD=$( cygpath --unix "$JAVACMD" )
++
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    for arg do
++        if
++            case $arg in                                #(
++              -*)   false ;;                            # don't mess with options #(
++              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
++                    [ -e "$t" ] ;;                      #(
++              *)    false ;;
++            esac
++        then
++            arg=$( cygpath --path --ignore --mixed "$arg" )
++        fi
++        # Roll the args list around exactly as many times as the number of
++        # args, so each arg winds up back in the position where it started, but
++        # possibly modified.
++        #
++        # NB: a `for` loop captures its iteration list before it begins, so
++        # changing the positional parameters here affects neither the number of
++        # iterations, nor the values presented in `arg`.
++        shift                   # remove old arg
++        set -- "$@" "$arg"      # push replacement arg
++    done
++fi
++
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
++
++# Collect all arguments for the java command:
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
++#     and any embedded shellness will be escaped.
++#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
++#     treated as '${Hostname}' itself on the command line.
++
++set -- \
++        "-Dorg.gradle.appname=$APP_BASE_NAME" \
++        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
++        "$@"
++
++# Stop when "xargs" is not available.
++if ! command -v xargs >/dev/null 2>&1
++then
++    die "xargs is not available"
++fi
++
++# Use "xargs" to parse quoted args.
++#
++# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
++#
++# In Bash we could simply go:
++#
++#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
++#   set -- "${ARGS[@]}" "$@"
++#
++# but POSIX shell has neither arrays nor command substitution, so instead we
++# post-process each arg (as a line of input to sed) to backslash-escape any
++# character that might be a shell metacharacter, then use eval to reverse
++# that process (while maintaining the separation between arguments), and wrap
++# the whole thing up as a single "set" statement.
++#
++# This will of course break if any of these variables contains a newline or
++# an unmatched quote.
++#
++
++eval "set -- $(
++        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
++        xargs -n1 |
++        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
++        tr '\n' ' '
++    )" '"$@"'
++
++exec "$JAVACMD" "$@"
+diff --git a/gradlew.bat b/gradlew.bat
+new file mode 100644
+index 0000000..c4bdd3a
+--- /dev/null
++++ b/gradlew.bat
+@@ -0,0 +1,93 @@
++@rem
++@rem Copyright 2015 the original author or authors.
++@rem
++@rem Licensed under the Apache License, Version 2.0 (the "License");
++@rem you may not use this file except in compliance with the License.
++@rem You may obtain a copy of the License at
++@rem
++@rem      https://www.apache.org/licenses/LICENSE-2.0
++@rem
++@rem Unless required by applicable law or agreed to in writing, software
++@rem distributed under the License is distributed on an "AS IS" BASIS,
++@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++@rem See the License for the specific language governing permissions and
++@rem limitations under the License.
++@rem
++@rem SPDX-License-Identifier: Apache-2.0
++@rem
++
++@if "%DEBUG%"=="" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++@rem This is normally unused
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Resolve any "." and ".." in APP_HOME to make it shorter.
++for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if %ERRORLEVEL% equ 0 goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:execute
++@rem Setup the command line
++
++
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
++
++:end
++@rem End local scope for the variables with windows NT shell
++if %ERRORLEVEL% equ 0 goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++set EXIT_CODE=%ERRORLEVEL%
++if %EXIT_CODE% equ 0 set EXIT_CODE=1
++if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
++exit /b %EXIT_CODE%
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+diff --git a/metadata.json b/metadata.json
+index 3d043a5..fc40c3e 100644
+--- a/metadata.json
++++ b/metadata.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "Next Move",
+-  "description": "Personal Daily Execution Coach that helps choose the next action.",
++  "description": "Local-first Personal Daily Execution Coach that helps choose the next action.",
+   "requestFramePermissions": [],
+-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
++  "majorCapabilities": []
+ }

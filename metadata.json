@@ -1,6 +1,6 @@
 {
   "name": "Next Move",
-  "description": "Personal Daily Execution Coach that helps choose the next action.",
+  "description": "Local-first Personal Daily Execution Coach that helps choose the next action.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

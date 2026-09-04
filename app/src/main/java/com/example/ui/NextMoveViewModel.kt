@@ -40,7 +40,7 @@ class NextMoveViewModel(private val repository: NextMoveRepository) : ViewModel(
         null
     )
 
-    fun submitDailyCompass(timeMins: Int, energy: Int, hasCommitments: Boolean) {
+    fun submitDailyCompass(timeMins: Int, energy: Int, availableContext: String) {
         viewModelScope.launch {
             // Check if we already have one for today
             val today = Calendar.getInstance().apply {
@@ -55,8 +55,9 @@ class NextMoveViewModel(private val repository: NextMoveRepository) : ViewModel(
                     dateMs = today,
                     usableTimeMins = timeMins,
                     energyLevel = energy,
-                    hasCommitments = hasCommitments,
-                    dailyWinActionId = null
+                    hasCommitments = false,
+                    dailyWinActionId = null,
+                    availableContext = availableContext
                 )
             )
         }
@@ -64,13 +65,14 @@ class NextMoveViewModel(private val repository: NextMoveRepository) : ViewModel(
 
     fun handleActionDecision(action: Action, decision: String) {
         viewModelScope.launch {
-            val status = when (decision) {
-                "completed" -> "completed"
-                "not_now" -> "parked"
-                "wrong_context" -> "ready" // Just skipped for now, could decrease score
-                else -> "ready"
+            when (decision) {
+                "not_now" -> {
+                    val dateMs = dailyContext.value?.dateMs ?: return@launch
+                    repository.deferActionForDate(action.id, dateMs)
+                }
+                "completed" -> repository.recordDecision(action.id, "completed", "completed")
+                else -> repository.recordDecision(action.id, decision, "ready")
             }
-            repository.recordDecision(action.id, decision, status)
         }
     }
 

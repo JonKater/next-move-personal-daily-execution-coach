@@ -1,0 +1,91 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "8c9d0a9285279570228111679f59ebca",
+    "entities": [
+      {
+        "tableName": "goals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `color` TEXT NOT NULL)",
+        "fields": [
+          { "fieldPath": "id", "columnName": "id", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "name", "columnName": "name", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "color", "columnName": "color", "affinity": "TEXT", "notNull": true }
+        ],
+        "primaryKey": { "autoGenerate": true, "columnNames": ["id"] },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "projects",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `goalId` INTEGER NOT NULL, `name` TEXT NOT NULL, `status` TEXT NOT NULL, FOREIGN KEY(`goalId`) REFERENCES `goals`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          { "fieldPath": "id", "columnName": "id", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "goalId", "columnName": "goalId", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "name", "columnName": "name", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "status", "columnName": "status", "affinity": "TEXT", "notNull": true }
+        ],
+        "primaryKey": { "autoGenerate": true, "columnNames": ["id"] },
+        "indices": [],
+        "foreignKeys": [
+          { "tableName": "goals", "onDelete": "CASCADE", "onUpdate": "NO ACTION", "columnNames": ["goalId"], "referencedColumnNames": ["id"] }
+        ]
+      },
+      {
+        "tableName": "actions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `projectId` INTEGER NOT NULL, `milestone` TEXT NOT NULL, `name` TEXT NOT NULL, `estimatedDurationMins` INTEGER NOT NULL, `energyDemand` INTEGER NOT NULL, `urgency` INTEGER NOT NULL, `context` TEXT NOT NULL, `strategicRelevance` INTEGER NOT NULL, `status` TEXT NOT NULL, `score` REAL NOT NULL, FOREIGN KEY(`projectId`) REFERENCES `projects`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          { "fieldPath": "id", "columnName": "id", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "projectId", "columnName": "projectId", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "milestone", "columnName": "milestone", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "name", "columnName": "name", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "estimatedDurationMins", "columnName": "estimatedDurationMins", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "energyDemand", "columnName": "energyDemand", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "urgency", "columnName": "urgency", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "context", "columnName": "context", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "strategicRelevance", "columnName": "strategicRelevance", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "status", "columnName": "status", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "score", "columnName": "score", "affinity": "REAL", "notNull": true }
+        ],
+        "primaryKey": { "autoGenerate": true, "columnNames": ["id"] },
+        "indices": [],
+        "foreignKeys": [
+          { "tableName": "projects", "onDelete": "CASCADE", "onUpdate": "NO ACTION", "columnNames": ["projectId"], "referencedColumnNames": ["id"] }
+        ]
+      },
+      {
+        "tableName": "daily_contexts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dateMs` INTEGER NOT NULL, `usableTimeMins` INTEGER NOT NULL, `energyLevel` INTEGER NOT NULL, `hasCommitments` INTEGER NOT NULL, `dailyWinActionId` INTEGER)",
+        "fields": [
+          { "fieldPath": "id", "columnName": "id", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "dateMs", "columnName": "dateMs", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "usableTimeMins", "columnName": "usableTimeMins", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "energyLevel", "columnName": "energyLevel", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "hasCommitments", "columnName": "hasCommitments", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "dailyWinActionId", "columnName": "dailyWinActionId", "affinity": "INTEGER", "notNull": false }
+        ],
+        "primaryKey": { "autoGenerate": true, "columnNames": ["id"] },
+        "indices": [],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "decision_logs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `actionId` INTEGER NOT NULL, `decision` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)",
+        "fields": [
+          { "fieldPath": "id", "columnName": "id", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "actionId", "columnName": "actionId", "affinity": "INTEGER", "notNull": true },
+          { "fieldPath": "decision", "columnName": "decision", "affinity": "TEXT", "notNull": true },
+          { "fieldPath": "timestamp", "columnName": "timestamp", "affinity": "INTEGER", "notNull": true }
+        ],
+        "primaryKey": { "autoGenerate": true, "columnNames": ["id"] },
+        "indices": [],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8c9d0a9285279570228111679f59ebca')"
+    ]
+  }
+}

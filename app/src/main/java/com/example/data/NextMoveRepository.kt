@@ -4,6 +4,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
+fun scoreAction(action: Action, context: DailyContext): Action? {
+    if (action.estimatedDurationMins <= 0) return null
+    if (action.energyDemand !in 1..3 || context.energyLevel !in 1..3) return null
+    if (action.deferredDateMs == context.dateMs) return null
+    if (action.context != "Anywhere" && action.context != context.availableContext) return null
+
+    var score = 0f
+    score += if (action.estimatedDurationMins <= context.usableTimeMins) 5f else -10f
+    score += if (action.energyDemand <= context.energyLevel) 5f else -5f
+    score += action.urgency.coerceIn(1, 3) * 2f
+    score += action.strategicRelevance.coerceIn(1, 3) * 1.5f
+    return action.copy(score = score)
+}
+
 class NextMoveRepository(private val dao: NextMoveDao) {
     val allGoals: Flow<List<Goal>> = dao.getAllGoals()
     val allProjects: Flow<List<Project>> = dao.getAllProjects()
@@ -12,39 +26,15 @@ class NextMoveRepository(private val dao: NextMoveDao) {
     // Calculate score based on current context
     fun getScoredNextActions(): Flow<List<Action>> {
         return combine(dao.getActiveActions(), latestContext) { actions, context ->
-            if (context == null) return@combine actions
+            if (context == null) return@combine emptyList()
             
-            actions.map { action ->
-                var score = 0f
-                // 1. Fit with current time (penalize if longer than available)
-                if (action.estimatedDurationMins <= context.usableTimeMins) {
-                    score += 5f
-                } else {
-                    score -= 10f // Too long
-                }
-                
-                // 2. Fit with energy (match demand with current level)
-                if (action.energyDemand <= context.energyLevel) {
-                    score += 5f
-                } else {
-                    score -= 5f // Too draining right now
-                }
-                
-                // 3. Urgency
-                score += action.urgency * 2f
-                
-                // 4. Strategic Alignment
-                score += action.strategicRelevance * 1.5f
-                
-                action.copy(score = score)
-            }.sortedByDescending { it.score }
+            actions.mapNotNull { action -> scoreAction(action, context) }
+                .sortedWith(compareByDescending<Action> { it.score }.thenBy { it.id })
         }
     }
     
     fun getTopRecommendation(): Flow<Action?> {
         return getScoredNextActions().map { actions ->
-            // Try to find the daily win if selected
-            val context = dao.getLatestDailyContext() // this needs refactoring, map is fine
             actions.firstOrNull { it.status == "daily_win" } ?: actions.firstOrNull()
         }
     }
@@ -54,18 +44,16 @@ class NextMoveRepository(private val dao: NextMoveDao) {
     suspend fun insertAction(action: Action) = dao.insertAction(action)
     suspend fun updateActionStatus(id: Int, status: String) = dao.updateActionStatus(id, status)
     suspend fun saveDailyContext(context: DailyContext) = dao.insertDailyContext(context)
-    
+
     suspend fun recordDecision(actionId: Int, decision: String, status: String) {
-        dao.insertDecisionLog(DecisionLog(actionId = actionId, decision = decision))
-        dao.updateActionStatus(actionId, status)
+        dao.recordDecisionAndUpdateStatus(actionId, decision, status)
+    }
+
+    suspend fun deferActionForDate(actionId: Int, dateMs: Long) {
+        dao.deferActionForDate(actionId, dateMs)
     }
 
     suspend fun splitAction(actionId: Int, newName1: String, newName2: String, dur1: Int, dur2: Int) {
-        val original = dao.getActionById(actionId) ?: return
-        dao.updateActionStatus(actionId, "split")
-        dao.insertDecisionLog(DecisionLog(actionId = actionId, decision = "too_big"))
-        
-        dao.insertAction(original.copy(id = 0, name = newName1, estimatedDurationMins = dur1, status = "ready"))
-        dao.insertAction(original.copy(id = 0, name = newName2, estimatedDurationMins = dur2, status = "ready"))
+        dao.splitActionAtomically(actionId, newName1, newName2, dur1, dur2)
     }
 }

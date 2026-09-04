@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -16,7 +15,7 @@ import com.example.ui.NextMoveViewModel
 fun DailyCompassScreen(viewModel: NextMoveViewModel) {
     var timeSlider by remember { mutableStateOf(60f) }
     var energySlider by remember { mutableStateOf(2f) }
-    var hasCommitments by remember { mutableStateOf(false) }
+    var availableContext by remember { mutableStateOf("Anywhere") }
 
     Column(
         modifier = Modifier
@@ -71,13 +70,18 @@ fun DailyCompassScreen(viewModel: NextMoveViewModel) {
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Unavoidable commitments?", fontWeight = FontWeight.SemiBold)
-                    Switch(checked = hasCommitments, onCheckedChange = { hasCommitments = it })
+                Text(text = "Available context", fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val contexts = listOf("Anywhere", "Computer", "Phone", "Errands")
+                    contexts.forEachIndexed { index, context ->
+                        SegmentedButton(
+                            selected = availableContext == context,
+                            onClick = { availableContext = context },
+                            shape = SegmentedButtonDefaults.itemShape(index, contexts.size),
+                            label = { Text(context) }
+                        )
+                    }
                 }
             }
         }
@@ -86,7 +90,7 @@ fun DailyCompassScreen(viewModel: NextMoveViewModel) {
         
         Button(
             onClick = { 
-                viewModel.submitDailyCompass(timeSlider.toInt(), energySlider.toInt(), hasCommitments) 
+                viewModel.submitDailyCompass(timeSlider.toInt(), energySlider.toInt(), availableContext)
             },
             modifier = Modifier
                 .fillMaxWidth()

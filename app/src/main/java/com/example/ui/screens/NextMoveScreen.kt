@@ -197,7 +197,7 @@ fun NextMoveScreen(viewModel: NextMoveViewModel, action: Action?) {
                     Text("Too big")
                 }
                 FilledTonalButton(
-                    onClick = { viewModel.handleActionDecision(action, "wrong_context") },
+                    onClick = { viewModel.handleActionDecision(action, "not_now") },
                     modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {

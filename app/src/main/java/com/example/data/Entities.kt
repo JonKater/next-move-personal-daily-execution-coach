@@ -37,7 +37,8 @@ data class Action(
     val context: String,
     val strategicRelevance: Int = 2,
     val status: String = "ready", // ready, completed, rejected, parked, daily_win
-    val score: Float = 0f
+    val score: Float = 0f,
+    val deferredDateMs: Long? = null
 )
 
 @Entity(tableName = "daily_contexts")
@@ -47,7 +48,8 @@ data class DailyContext(
     val usableTimeMins: Int,
     val energyLevel: Int,
     val hasCommitments: Boolean,
-    val dailyWinActionId: Int?
+    val dailyWinActionId: Int?,
+    val availableContext: String = "Anywhere"
 )
 
 @Entity(tableName = "decision_logs")

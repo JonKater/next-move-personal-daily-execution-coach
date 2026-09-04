@@ -8,6 +8,7 @@ import com.example.data.NextMoveRepository
 class NextMoveApplication : Application() {
     val database by lazy { 
         Room.databaseBuilder(this, NextMoveDatabase::class.java, "next_move_db")
+            .addMigrations(NextMoveDatabase.MIGRATION_1_2)
             .build()
     }
     val repository by lazy { NextMoveRepository(database.dao()) }
